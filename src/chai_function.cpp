@@ -4,7 +4,7 @@
 #include "chai_module.h"
 
 ChaiFunction::ChaiFunction(const std::string& name, const std::string& _namespace, const std::string& return_type,  const bool is_overloaded, const bool is_static)
-: ChaiObject(name, _namespace), return_type(return_type), is_overloaded(is_overloaded), is_static(is_static) {
+: ChaiObject(name, _namespace), return_type(return_type), is_constructor(false), is_overloaded(is_overloaded), is_static(is_static) {
 
 }
 
@@ -14,6 +14,14 @@ void ChaiFunction::setReturnType(const std::string& return_type) noexcept {
 
 std::string ChaiFunction::getReturnType() const noexcept {
   return return_type;
+}
+
+void ChaiFunction::setConstructor(const bool constructor) {
+  is_constructor = constructor;
+}
+
+bool ChaiFunction::isConstructor() const noexcept {
+  return is_constructor;
 }
 
 void ChaiFunction::setOverloaded(const bool overloaded) {
@@ -32,10 +40,10 @@ bool ChaiFunction::isStatic() const noexcept {
 }
 
 void ChaiFunction::addArgument(const std::string& type, const std::string& arg) {
-  arguments.insert(std::pair<std::string, std::string>(type, arg));
+  arguments.push_back(std::pair<std::string, std::string>(type, arg));
 }
 
-std::multimap<std::string, std::string> ChaiFunction::getArguments() const noexcept {
+std::vector<std::pair<std::string, std::string>> ChaiFunction::getArguments() const noexcept {
   return arguments;
 }
 
@@ -44,7 +52,7 @@ void ChaiFunction::isMethodOf(std::weak_ptr<ChaiModule> module) {
 }
 
 std::string ChaiFunction::toString() const noexcept {
-  return getNamespace() + "::" + (this->module.use_count() > 0 ? this->module.lock()->getName() + "::" : "") + getName();
+  return (this->module.use_count() > 0 ? this->module.lock()->getName() + "::" : "") + getName();
 }
 
 std::string ChaiFunction::getRegistryString() const {
@@ -54,19 +62,37 @@ std::string ChaiFunction::getRegistryString() const {
     for(auto& arg : arguments) {
       args += arg.first + " " + arg.second + ", ";
     }
-    args.pop_back();
-    args.pop_back();
+    if(!args.empty())
+      args.pop_back();
+    if(!args.empty())
+      args.pop_back();
     return args;
   };
 
-  reg << "chaiscript::fun(";
-  if(is_overloaded) {
-    reg << "[](" << (getNamespace() != "" ? (getNamespace() + "::") : "" ) << this->module.lock()->getName() << "& c";
+  auto collapse_arg_names = [&]() {
+    std::string args;
+    for(auto& arg : arguments) {
+      args += arg.second + ", ";
+    }
+    if(!args.empty())
+      args.pop_back();
+    if(!args.empty())
+      args.pop_back();
+    return args;
+  };
+
+  if(is_constructor) {
+    reg << "chaiscript::constructor<" << getName() << "(" << collapse_args() << ")>()";
+  }
+  else if(!is_constructor && is_overloaded) {
+    reg << "chaiscript::fun(";
+    reg << "[](" << this->module.lock()->getName() << "& c";
     reg << (arguments.size() > 0 ? ", " + collapse_args() : "") << ") ";
-    reg << "{ c." << getName() << "(" << (arguments.size() > 0 ? collapse_args() : "") << "); }), \"" << getName() << "\"";
+    reg << "{ return c." << getName() << "(" << (arguments.size() > 0 ? collapse_arg_names() : "") << "); }), \"" << getName() << "\"";
   }
   else {
-    reg << "&" << (getNamespace() != "" ? (getNamespace() + "::") : "" ) << this->module.lock()->getName() << "::" << getName() << "), \"";
+    reg << "chaiscript::fun(";
+    reg << "&" << this->module.lock()->getName() << "::" << getName() << "), \"";
     if(is_static) {
       reg << this->module.lock()->getName() << "_";
     }

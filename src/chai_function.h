@@ -11,7 +11,8 @@ class ChaiFunction : public ChaiObject {
 private:
   std::string return_type;
   std::weak_ptr<ChaiModule> module;
-  std::multimap<std::string, std::string> arguments;
+  std::vector<std::pair<std::string, std::string>> arguments;
+  bool is_constructor;
   bool is_overloaded;
   bool is_static;
 public:
@@ -20,13 +21,15 @@ public:
 
   void setReturnType(const std::string& return_type) noexcept;
   std::string getReturnType() const noexcept;
+  void setConstructor(const bool constructor);
+  bool isConstructor() const noexcept;
   void setOverloaded(const bool overloaded);
   bool isOverloaded() const noexcept;
   void setStatic(const bool is_static);
   bool isStatic() const noexcept;
 
   void addArgument(const std::string& type, const std::string& arg);
-  std::multimap<std::string, std::string> getArguments() const noexcept;
+  std::vector<std::pair<std::string, std::string>> getArguments() const noexcept;
 
   void isMethodOf(std::weak_ptr<ChaiModule> module);
 

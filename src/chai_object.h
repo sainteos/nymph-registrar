@@ -22,6 +22,7 @@ public:
   virtual bool operator<(const ChaiObject& other) const;
 
   static bool hasObjectBeenRegistered(const std::string& name, const std::string& _namespace);
+  static std::shared_ptr<ChaiObject> getRegisteredObject(const std::string& name, const std::string& _namespace);
 
   template<class T>
   static std::shared_ptr<T> create(const std::string& name, const std::string& _namespace);

@@ -1,5 +1,7 @@
 #include <sstream>
 #include <iostream>
+#include <memory>
+#include <set>
 #include "chai_module.h"
 
 ChaiModule::ChaiModule(const std::string& _class, const std::string& _namespace) : ChaiObject(_class, _namespace) {
@@ -45,6 +47,49 @@ void ChaiModule::addRawBases(std::vector<std::string> bases) {
   raw_bases = bases;
 }
 
+std::vector<std::string> ChaiModule::getRawBases() const noexcept {
+  return raw_bases;
+}
+
+std::set<std::shared_ptr<ChaiModule>> ChaiModule::getAllBases() const {
+  std::set<std::shared_ptr<ChaiModule>> bases;
+  for(auto b : raw_bases) {
+    std::string ns;
+    std::string cs;
+    if(b.find_last_of("::") != std::string::npos) {
+      ns = b.substr(0, b.find_last_of("::")-1);
+      cs = b.substr(b.find_last_of("::")+1, b.size() - b.find_last_of("::"));
+      if(hasObjectBeenRegistered(cs, ns))
+      {
+        auto m = std::dynamic_pointer_cast<ChaiModule>(getRegisteredObject(cs, ns));
+        if(m) {
+          bases.insert(m);
+          auto m_bases = m->getAllBases();
+          if(!m_bases.empty()) {
+            bases.insert(m_bases.begin(), m_bases.end());
+          }
+        }
+      }
+    }
+    else {
+      cs = b;
+      if(hasObjectBeenRegistered(cs, ns))
+      {
+        auto m = std::dynamic_pointer_cast<ChaiModule>(getRegisteredObject(cs, ns));
+        if(m) {
+          bases.insert(m);
+          auto m_bases = m->getAllBases();
+          if(!m_bases.empty()) {
+            bases.insert(m_bases.begin(), m_bases.end());
+          }
+        }
+      }
+    }
+  }
+
+  return bases;
+}
+
 bool ChaiModule::operator<(const ChaiObject& other) const {
   try {
     auto other_module = dynamic_cast<const ChaiModule&>(other);
@@ -58,7 +103,7 @@ std::string ChaiModule::getRegistryString() const {
   std::stringstream reg;
   reg << "chaiscript::ModulePtr " << getRegistryFunctionCall() << " {\n";
   reg << "  chaiscript::ModulePtr module = std::make_shared<chaiscript::Module>();\n";
-  reg << "  chaiscript::utility::add_class<" << (getNamespace() != "" ? (getNamespace() + "::") : "" ) << getName() << ">(*module, std::string(\"" << getName() << "\"),\n";
+  reg << "  chaiscript::utility::add_class<" << getName() << ">(*module, std::string(\"" << getName() << "\"),\n";
   reg << "  {\n";
 
   //Add module constructors
@@ -83,27 +128,10 @@ std::string ChaiModule::getRegistryString() const {
   }
   reg << "  });\n";
 
-  //Go through all the bases to find the ones that are actually scriptable
-  for(auto b : raw_bases) {
-    //get rid of inheritance access specifiers
-    if(b.find("public") != std::string::npos)
-      b.replace(b.find("public"), 6, "");
-    if(b.find("protected") != std::string::npos)
-      b.replace(b.find("protected"), 9, "");
-    if(b.find("private") != std::string::npos)
-      b.replace(b.find("private"), 7, "");
+  auto bases = getAllBases();
 
-    //Extract namespace(s)
-    auto ns = b.substr(0, b.find_last_of("::")-1);
-    //Extract class
-    auto cs = b.substr(b.find_last_of("::")+1, b.size() - b.find_last_of("::"));
-
-    //Check to see if this base class has been registered
-    //if it hasn't, we don't pay attention to it
-    if(hasObjectBeenRegistered(cs, ns))
-    {
-      reg << "  module->add(chaiscript::base_class<" << (ns != "" ? (ns + "::") : "" ) << cs << ", " << (getNamespace() != "" ? (getNamespace() + "::") : "" ) << getName() << ">());\n";
-    }
+  for(auto b : bases) {
+    reg << "  module->add(chaiscript::base_class<" << b->getName() << ", " << getName() << ">());\n";
   }
 
   reg << "  return module;\n";

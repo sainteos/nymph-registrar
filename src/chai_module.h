@@ -4,6 +4,7 @@
 #include <vector>
 #include <memory>
 #include <map>
+#include <set>
 #include "chai_object.h"
 #include "chai_function.h"
 
@@ -26,6 +27,9 @@ public:
 
   void addRawBase(const std::string& name);
   void addRawBases(std::vector<std::string> bases);
+  std::vector<std::string> getRawBases() const noexcept;
+
+  std::set<std::shared_ptr<ChaiModule>> getAllBases() const;
 
   virtual bool operator<(const ChaiObject& other) const override;
 
