@@ -73,9 +73,20 @@ std::set<std::shared_ptr<ChaiModule>> ChaiModule::getAllBases() const {
     }
     else {
       cs = b;
+      ns = getNamespace();
       if(hasObjectBeenRegistered(cs, ns))
       {
         auto m = std::dynamic_pointer_cast<ChaiModule>(getRegisteredObject(cs, ns));
+        if(m) {
+          bases.insert(m);
+          auto m_bases = m->getAllBases();
+          if(!m_bases.empty()) {
+            bases.insert(m_bases.begin(), m_bases.end());
+          }
+        }
+      }
+      else if(hasObjectBeenRegistered(cs, "")) {
+        auto m = std::dynamic_pointer_cast<ChaiModule>(getRegisteredObject(cs, ""));
         if(m) {
           bases.insert(m);
           auto m_bases = m->getAllBases();

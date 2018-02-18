@@ -17,7 +17,7 @@
 #include <cppast/cpp_class.hpp>
 #include <cppast/cpp_preprocessor.hpp>
 
-ChaiObjectProcessor::ChaiObjectProcessor(const cppast::libclang_compile_config& config) : compile_config(config), current_namespace("") {
+ChaiObjectProcessor::ChaiObjectProcessor(const cppast::libclang_compile_config& config, const bool verbose_parsing) : compile_config(config), current_namespace(""), verbose_parsing(verbose_parsing) {
 
 }
 
@@ -27,6 +27,8 @@ void ChaiObjectProcessor::processObjects(std::vector<std::string> filenames, con
   auto parsed_files = parseFiles(this->filenames, this->compile_config, verbose_output);
 
   for(auto& file : parsed_files) {
+    if(verbose_output)
+      std::cout<<"Processing "<<file->name()<<"..."<<std::endl;
     cppast::visit(*file, [&](const cppast::cpp_entity& ent, cppast::visitor_info info) {
       if(info.event != cppast::visitor_info::container_entity_exit) {
         if(ent.kind() == cppast::cpp_entity_kind::namespace_t) {
@@ -113,20 +115,42 @@ std::stringstream ChaiObjectProcessor::generateRegistrations(const bool expanded
 
 std::vector<std::unique_ptr<cppast::cpp_file>> ChaiObjectProcessor::parseFiles(std::vector<std::string>& filenames, const cppast::libclang_compile_config& config, const bool verbose_output) {
   cppast::cpp_entity_index idx;
-  cppast::libclang_parser parser;
   std::vector<std::unique_ptr<cppast::cpp_file>> parsed_files;
-  for(auto f : filenames) {
-    if(verbose_output)
-      std::cout<<"Parsing file: "<<f<<std::endl;
-    auto file = parser.parse(idx, f, config);
-    if(parser.error()) {
-      std::cout<<"There was a parser error when parsing "<<f<<std::endl;
-      parser.reset_error();
-    }
-    else {
-      parsed_files.push_back(std::move(file));
+
+  if(!verbose_parsing) {
+    cppast::libclang_parser parser;
+    for(auto f : filenames) {
+      if(verbose_output)
+        std::cout<<"Parsing file(nonverbosely): "<<f<<std::endl;
+      auto file = parser.parse(idx, f, config);
+      if(parser.error()) {
+        std::cout<<"There was a parser error when parsing "<<f<<std::endl;
+        parser.reset_error();
+      }
+      else {
+        parsed_files.push_back(std::move(file));
+      }
     }
   }
+  else {
+    cppast::stderr_diagnostic_logger logger;
+    logger.set_verbose(true);
+    cppast::libclang_parser parser(type_safe::ref(logger));
+    for(auto f : filenames) {
+      if(verbose_output)
+        std::cout<<"Parsing file(verbosely): "<<f<<std::endl;
+      auto file = parser.parse(idx, f, config);
+      if(!file || parser.error()) {
+        std::cout<<"There was a parser error when parsing "<<f<<std::endl;
+        if(parser.error())
+          parser.reset_error();
+      }
+      else {
+        parsed_files.push_back(std::move(file));
+      }
+    }
+  }
+
   return std::move(parsed_files);
 }
 

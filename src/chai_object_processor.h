@@ -23,7 +23,9 @@ private:
 
   std::string current_namespace;
 
-  std::vector<std::unique_ptr<cppast::cpp_file>> parseFiles(std::vector<std::string>& filenames, const cppast::libclang_compile_config& config, const bool verbose_output = false);
+  bool verbose_parsing;
+
+  std::vector<std::unique_ptr<cppast::cpp_file>> parseFiles(std::vector<std::string>& filenames, const cppast::libclang_compile_config& config, const bool verbose_parsing = false);
   void processNamespace(const cppast::cpp_entity& ent, const bool verbose_output = false);
   void processModule(const cppast::cpp_entity& ent, const bool verbose_output = false);
   void processEnum(const cppast::cpp_entity& ent, const bool verbose_output = false);
@@ -34,7 +36,7 @@ private:
   std::shared_ptr<ChaiModule> findModuleByName(const std::string& name) const;
 public:
   ChaiObjectProcessor() = delete;
-  ChaiObjectProcessor(const cppast::libclang_compile_config& config);
+  ChaiObjectProcessor(const cppast::libclang_compile_config& config, const bool verbose_processing = false);
   void processObjects(std::vector<std::string> filenames, const bool verbose_output = false);
   std::stringstream generateRegistrations(const bool expanded = false, const bool verbose_output = false) const;
 

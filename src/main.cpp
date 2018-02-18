@@ -41,11 +41,6 @@ std::vector<std::string> grabFiles(const std::string& directory, const std::vect
 
 int main(int argc, char** argv) {
   std::string include_dir;
-  cppast::libclang_compile_config config;
-  cppast::compile_flags flags;
-
-  //flags |= cppast::compile_flag::gnu_extensions;
-  config.set_flags(cppast::cpp_standard::cpp_14, flags);
   if(argc < 2) {
     std::cout<<"=                    USAGE:                   ="<<std::endl;
     std::cout<<"nymph-registrar <args> [directory to register]"<<std::endl;
@@ -63,6 +58,9 @@ int main(int argc, char** argv) {
     std::cout<<"= header(s).                                  ="<<std::endl;
     std::cout<<"=                                             ="<<std::endl;
     std::cout<<"= -V: This tells the tool to output verbose   ="<<std::endl;
+    std::cout<<"= output as it processes.                     ="<<std::endl;
+    std::cout<<"=                                             ="<<std::endl;
+    std::cout<<"= -VV: This tells the tool to output verbose  ="<<std::endl;
     std::cout<<"= output as it parses and processes.          ="<<std::endl;
     std::cout<<"=                                             ="<<std::endl;
     std::cout<<"= -X: This tells the tool to expand the outp- ="<<std::endl;
@@ -75,11 +73,13 @@ int main(int argc, char** argv) {
 
   std::string directory_to_be_registered = std::string(argv[argc - 1]);
   std::vector<std::string> args;
+  std::vector<std::string> includes;
   std::vector<std::string> exclusions;
   std::string output_directory = "./";
   bool expand_files = false;
   bool print_to_stdout = false;
-  bool print_verbosely = false;
+  bool parse_verbosely = false;
+  bool process_verbosely = false;
 
   for(int i=1; i<argc-1; i++) {
     args.push_back(argv[i]);
@@ -89,7 +89,7 @@ int main(int argc, char** argv) {
     if(arg.find("-I") != std::string::npos) {
       arg.erase(0, 2);
       std::cout<<"Include directory: "<<arg<<std::endl;
-      config.add_include_dir(arg);
+      includes.push_back(arg);
     }
     else if(arg.find("-E") != std::string::npos) {
       arg.erase(0, 2);
@@ -109,10 +109,27 @@ int main(int argc, char** argv) {
       std::cout<<"Output will be expanded to multiple files."<<std::endl;
       expand_files = true;
     }
-    else if(arg.find("-V") != std::string::npos) {
-      std::cout<<"Outputting verbosely."<<std::endl;
-      print_verbosely = true;
+    else if(arg.find("-V") != std::string::npos && arg.find("-VV") == std::string::npos) {
+
+      std::cout<<"Processing verbosely."<<std::endl;
+      process_verbosely = true;
     }
+    else if(arg.find("-VV") != std::string::npos) {
+      std::cout<<"Parsing and Processing verbosely"<<std::endl;
+      parse_verbosely = true;
+      process_verbosely = true;
+    }
+  }
+
+  cppast::libclang_compile_config config;
+  cppast::compile_flags flags;
+
+  config.fast_preprocessing(false);
+
+  config.set_flags(cppast::cpp_standard::cpp_14, flags);
+
+  for(auto i : includes) {
+    config.add_include_dir(i);
   }
 
   exclusions.push_back("generated");
@@ -120,11 +137,11 @@ int main(int argc, char** argv) {
 
   auto files = grabFiles(directory_to_be_registered, exclusions);
 
-  auto object_processor = ChaiObjectProcessor(config);
+  auto object_processor = ChaiObjectProcessor(config, parse_verbosely);
 
-  object_processor.processObjects(files);
+  object_processor.processObjects(files, process_verbosely);
 
-  auto registrations = object_processor.generateRegistrations();
+  auto registrations = object_processor.generateRegistrations(process_verbosely);
 
   if(print_to_stdout) {
     std::cout<<registrations.str();
