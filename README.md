@@ -52,7 +52,9 @@ OPTIONS:
 
 -O/path/to/output/dir: The path in which the parse output should be placed.
 
--V: This tells the tool to output a lot more information.
+-V: This tells the tool to output verbose output as it processes.
+
+-VV: This tells the tool to output verbose output as it parses and processes.
 
 -X: This tells the tool to expand the generated registrations into multiple files per namespace.
 
