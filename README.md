@@ -41,7 +41,30 @@ Mark up the header files you would like to parse with attributes that look like 
 ```
 [[scriptable]]
 ```
-This can be attached to enums, classes, class methods, static functions, and constructors.
+This can be attached to enums, classes, class methods, class method templates(with supporting arguments), static functions, and constructors.
+
+Class method templates are a little more complicated in that you have to supply the possible types that can be used in the template within chaiscript since chaiscript needs a reference to a specific instance of the method template. This can be done as such:
+```
+class [[scriptable]] ClassWithTemplateMethod {
+  public:
+
+  template<typename T>
+  [[scriptable(MUTATOR, {unsigned int, int, float, double, NumericType, ThreadInstance, ArbitraryType})]]
+  void setArbitraryData(const T& data);
+};
+```
+There are a couple things going on here. The first argument of the scriptable attribute "MUTATOR" lets nymph-registrar know that the method it is going to do a template substitution on is a getter/setter or some other method scheme that you would want to be named setUnsignedIntArbitraryData, setIntArbitraryData, etc. within the chaiscript runtime.
+
+There are two other options for this: BEFORE, and AFTER for the cases in which you would want the template type name to be substituted into the function name at the beginning or at the end. What substitution scheme one uses is purely up to preference.
+
+The next argument to the scriptable attribute is essentially an initializer list of types. Since there is only one template type for this example, it makes sense for there to be only one initializer list of types. It is also possible to do multiple template type substitution like this:
+```
+template<typename T, typename S, typename Z>
+[[scriptable(AFTER, {unsigned int, int}, {float, double}, {std::string, const char*})]]
+void doSomethingImportant(T&& t, S&& s, Z&& z);
+```
+When the generator creates the registration code for that template function, it will concatenate the different template types in the method name, and it will place the type names after the function name as such: `doSomethingImportantUnsignedIntFloatString`. Note how the scope drops off for the name.
+
 nymph-generate runs like this:
 ```
 nymph-registrar <options> [parse dir]

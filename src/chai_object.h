@@ -19,7 +19,7 @@ public:
   std::string getName() const noexcept;
 
   virtual std::string toString() const noexcept;
-  virtual bool operator<(const ChaiObject& other) const;
+  virtual bool operator<(ChaiObject& other) const;
 
   static bool hasObjectBeenRegistered(const std::string& name, const std::string& _namespace);
   static std::shared_ptr<ChaiObject> getRegisteredObject(const std::string& name, const std::string& _namespace);

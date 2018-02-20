@@ -25,7 +25,7 @@ std::string ChaiObject::toString() const noexcept {
   return name;
 }
 
-bool ChaiObject::operator<(const ChaiObject& other) const {
+bool ChaiObject::operator<(ChaiObject& other) const {
   return false;
 }
 

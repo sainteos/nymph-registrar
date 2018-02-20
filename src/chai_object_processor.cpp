@@ -16,12 +16,13 @@
 #include <cppast/cpp_type.hpp>
 #include <cppast/cpp_class.hpp>
 #include <cppast/cpp_preprocessor.hpp>
+#include <cppast/cpp_function_template.hpp>
 
 ChaiObjectProcessor::ChaiObjectProcessor(const cppast::libclang_compile_config& config, const bool verbose_parsing) : compile_config(config), current_namespace(""), verbose_parsing(verbose_parsing) {
 
 }
 
-void ChaiObjectProcessor::processObjects(std::vector<std::string> filenames, const bool verbose_output){
+void ChaiObjectProcessor::processObjects(const std::vector<std::string>& filenames, const bool verbose_output){
   this->filenames = filenames;
 
   auto parsed_files = parseFiles(this->filenames, this->compile_config, verbose_output);
@@ -34,20 +35,26 @@ void ChaiObjectProcessor::processObjects(std::vector<std::string> filenames, con
         if(ent.kind() == cppast::cpp_entity_kind::namespace_t) {
           processNamespace(ent, verbose_output);
         }
-        else if(ent.kind() == cppast::cpp_entity_kind::enum_t) {
-          processEnum(ent, verbose_output);
-        }
-        else if(ent.kind() == cppast::cpp_entity_kind::class_t) {
-          processModule(ent, verbose_output);
-        }
-        else if(ent.kind() == cppast::cpp_entity_kind::constructor_t) {
-          processConstructor(ent, verbose_output);
-        }
-        else if(ent.kind() == cppast::cpp_entity_kind::member_function_t) {
-          processMemberFunction(ent, verbose_output);
-        }
-        else if(ent.kind() == cppast::cpp_entity_kind::function_t) {
-          processStaticFunction(ent, verbose_output);
+        else if(cppast::has_attribute(ent.attributes(), "scriptable")) {
+          if(ent.kind() == cppast::cpp_entity_kind::enum_t) {
+            processEnum(ent, verbose_output);
+          }
+          else if(ent.kind() == cppast::cpp_entity_kind::class_t) {
+            processModule(ent, verbose_output);
+          }
+          else if(ent.kind() == cppast::cpp_entity_kind::constructor_t) {
+            processConstructor(ent, verbose_output);
+          }
+          else if(ent.kind() == cppast::cpp_entity_kind::member_function_t) {
+            processMemberFunction(ent, verbose_output);
+          }
+          else if(ent.kind() == cppast::cpp_entity_kind::function_t) {
+            processStaticFunction(ent, verbose_output);
+          }
+          else if(ent.kind() == cppast::cpp_entity_kind::function_template_t)
+          {
+            processFunctionTemplate(ent, verbose_output);
+          }
         }
       }
       else if(info.event == cppast::visitor_info::container_entity_exit && ent.kind() == cppast::cpp_entity_kind::namespace_t) {
@@ -113,7 +120,7 @@ std::stringstream ChaiObjectProcessor::generateRegistrations(const bool expanded
   return output;
 }
 
-std::vector<std::unique_ptr<cppast::cpp_file>> ChaiObjectProcessor::parseFiles(std::vector<std::string>& filenames, const cppast::libclang_compile_config& config, const bool verbose_output) {
+std::vector<std::unique_ptr<cppast::cpp_file>> ChaiObjectProcessor::parseFiles(const std::vector<std::string>& filenames, const cppast::libclang_compile_config& config, const bool verbose_output) {
   cppast::cpp_entity_index idx;
   std::vector<std::unique_ptr<cppast::cpp_file>> parsed_files;
 
@@ -170,7 +177,7 @@ void ChaiObjectProcessor::processNamespace(const cppast::cpp_entity& ent, const 
 
 void ChaiObjectProcessor::processModule(const cppast::cpp_entity& ent, const bool verbose_output) {
   auto& cs = static_cast<const cppast::cpp_class&>(ent);
-  if(cppast::has_attribute(cs.attributes(), "scriptable") && !cs.is_declaration()) {
+  if(!cs.is_declaration()) {
     auto _class = cs.name();
     modules.emplace_back(ChaiObject::create<ChaiModule>(_class, current_namespace));
     objects.push_back(modules.back());
@@ -190,7 +197,7 @@ void ChaiObjectProcessor::processModule(const cppast::cpp_entity& ent, const boo
 
 void ChaiObjectProcessor::processEnum(const cppast::cpp_entity& ent, const bool verbose_output) {
   auto& en = static_cast<const cppast::cpp_enum&>(ent);
-  if(cppast::has_attribute(en.attributes(), "scriptable") && !en.is_declaration()) {
+  if(!en.is_declaration()) {
     auto chai_enum = ChaiObject::create<ChaiEnum>(en.name(), current_namespace);
     for(auto it = en.begin(); it != en.end(); it++) {
       chai_enum->addValue(it->name());
@@ -208,10 +215,9 @@ void ChaiObjectProcessor::processEnum(const cppast::cpp_entity& ent, const bool 
 
 void ChaiObjectProcessor::processMemberFunction(const cppast::cpp_entity& ent, const bool verbose_output) {
   auto& fn = static_cast<const cppast::cpp_member_function&>(ent);
-  if(cppast::has_attribute(fn.attributes(), "scriptable")) {
-
-    auto function = ChaiObject::create<ChaiFunction>(fn.name(), current_namespace);
-    auto module = findModuleByName(fn.parent().value().name());
+  auto module = findModuleByName(fn.parent().value().name());
+  if(module) {
+    auto function = std::make_unique<ChaiFunction>(fn.name(), current_namespace);
     function->setReturnType(cppast::to_string(fn.return_type()));
     function->isMethodOf(module);
 
@@ -220,54 +226,136 @@ void ChaiObjectProcessor::processMemberFunction(const cppast::cpp_entity& ent, c
     }
     if(verbose_output)
       std::cout<<"Found scriptable function: "<<function->getName()<<std::endl;;
-    module->addFunction(function);
+    module->addFunction(std::move(function));
   }
+}
+
+namespace detail {
+  std::vector<std::string> split_args(const std::string& arg_list) {
+    std::vector<std::string> out;
+
+    auto unprocessed_args = arg_list;
+
+    while(unprocessed_args.find_first_of(",") != std::string::npos) {
+      out.push_back(unprocessed_args.substr(0, unprocessed_args.find_first_of(",")));
+      unprocessed_args.erase(0, unprocessed_args.find_first_of(",") + 1);
+    }
+    if(!unprocessed_args.empty())
+      out.push_back(unprocessed_args);
+    return out;
+  }
+}
+
+void ChaiObjectProcessor::processFunctionTemplate(const cppast::cpp_entity& ent, const bool verbose_output) {
+  auto& ft = static_cast<const cppast::cpp_function_template&>(ent);
+
+  auto function_template = std::make_unique<ChaiFunctionTemplate>(ft.name(), current_namespace);
+  auto module = findModuleByName(ft.parent().value().name());
+  function_template->setReturnType(cppast::to_string(static_cast<const cppast::cpp_function&>(ft.function()).return_type()));
+  function_template->isMethodOf(module);
+
+  for(auto& param : ft.function().parameters()) {
+    function_template->addArgument(cppast::to_string(param.type()), param.name());
+  }
+
+  for(auto& param : ft.parameters()) {
+    function_template->addTemplateVariable(param.name());
+  }
+
+  auto args = cppast::has_attribute(ent.attributes(), "scriptable").value().arguments();
+  auto args_str = args.value().as_string();
+  std::string subloc;
+
+  //Substitution Location
+  if(args_str.find_first_of(',') < args_str.find_first_of('{')) {
+    subloc = args_str.substr(0, args_str.find_first_of(','));
+    args_str.erase(0, args_str.find_first_of(',') + 1);
+
+    if(subloc == "BEFORE") {
+      function_template->setSubstitutionLocation(SubstitutionLocation::BEFORE);
+    }
+    else if(subloc == "AFTER") {
+      function_template->setSubstitutionLocation(SubstitutionLocation::AFTER);
+    }
+    else if(subloc == "MUTATOR") {
+      function_template->setSubstitutionLocation(SubstitutionLocation::MUTATOR);
+    }
+  }
+
+  int num_arg_lists = std::count(args_str.begin(), args_str.end(), '{');
+  int closing_braces = std::count(args_str.begin(), args_str.end(), '}');
+
+  if(num_arg_lists != closing_braces) {
+    throw(std::runtime_error("Open/close brace(\"{\"}) mismatch!"));
+  }
+
+  if(function_template->getNumTemplateVariables() != num_arg_lists) {
+    std::stringstream out;
+    out << "Mismatch number of template arguments: "<<function_template->getNumTemplateVariables()<<" to attribute argument lists: "<<num_arg_lists;
+    throw(std::runtime_error(out.str()));
+  }
+
+  for(int i = 0; i < num_arg_lists; i++) {
+    //Copy off the arg list
+    auto arg_list = args_str.substr(args_str.find_first_of("{") + 1, args_str.find_first_of("}") - args_str.find_first_of("{") - 1);
+    //Erase it from the original args str
+    args_str.erase(args_str.find_first_of("{"), args_str.find_first_of("}") - args_str.find_first_of("{") + 1);
+    //Erase comma
+    if(args_str.find_first_of(",") != std::string::npos)
+      args_str.erase(args_str.find_first_of(","), 1);
+    auto args = detail::split_args(arg_list);
+    for(auto arg : args) {
+      std::cout<<"Arg: "<<arg<<std::endl;
+      function_template->addSubstitutionType(function_template->getTemplateVariables()[i], arg);
+    }
+  }
+  if(verbose_output)
+    std::cout<<"Found scriptable function template: "<<function_template->getName()<<std::endl;
+  module->addFunction(std::move(function_template));
 }
 
 void ChaiObjectProcessor::processConstructor(const cppast::cpp_entity& ent, const bool verbose_output) {
   auto& ct = static_cast<const cppast::cpp_constructor&>(ent);
-  if(cppast::has_attribute(ct.attributes(), "scriptable")) {
 
-    auto constructor = ChaiObject::create<ChaiFunction>(ct.name(), current_namespace);
-    auto module = findModuleByName(ct.parent().value().name());
-    constructor->setReturnType("");
-    constructor->isMethodOf(module);
-    constructor->setConstructor(true);
+  auto constructor = std::make_unique<ChaiFunction>(ct.name(), current_namespace);
+  auto module = findModuleByName(ct.parent().value().name());
+  constructor->setReturnType("");
+  constructor->isMethodOf(module);
+  constructor->setConstructor(true);
 
-    for(auto& param : ct.parameters()) {
-      constructor->addArgument(cppast::to_string(param.type()), param.name());
-    }
-
-    if(verbose_output)
-      std::cout<<"Found scriptable constructor: "<<constructor->getName()<<std::endl;
-    module->addConstructor(constructor);
+  for(auto& param : ct.parameters()) {
+    constructor->addArgument(cppast::to_string(param.type()), param.name());
   }
+
+  if(verbose_output)
+    std::cout<<"Found scriptable constructor: "<<constructor->getName()<<std::endl;
+  module->addConstructor(std::move(constructor));
 }
 
 void ChaiObjectProcessor::processStaticFunction(const cppast::cpp_entity& ent, const bool verbose_output) {
   auto& fn = static_cast<const cppast::cpp_function&>(ent);
-  if(cppast::has_attribute(fn.attributes(), "scriptable")) {
-    auto function = ChaiObject::create<ChaiFunction>(fn.name(), current_namespace);
-    function->setReturnType(cppast::to_string(fn.return_type()));
-    function->setStatic(cppast::is_static(fn.storage_class()));
+  auto function = std::make_unique<ChaiFunction>(fn.name(), current_namespace);
+  function->setReturnType(cppast::to_string(fn.return_type()));
+  function->setStatic(cppast::is_static(fn.storage_class()));
 
-    for(auto& param : fn.parameters()) {
-      function->addArgument(cppast::to_string(param.type()), param.name());
-    }
+  for(auto& param : fn.parameters()) {
+    function->addArgument(cppast::to_string(param.type()), param.name());
+  }
 
-    if(function->isStatic()) {
-      auto module = findModuleByName(fn.parent().value().name());
-      module->addFunction(function);
-      function->isMethodOf(module);
-    }
-    else {
-      objects.push_back(function);
-    }
-    if(verbose_output)
-      std::cout<<"Found scriptable"<<(function->isStatic() ? "(static)" : "")<<" function: "<<function->getName()<<std::endl;
+  if(verbose_output) {
+    std::cout<<"Found scriptable"<<(function->isStatic() ? "(static)" : "")<<" function: "<<function->getName()<<std::endl;
+  }
+  if(function->isStatic()) {
+    auto module = findModuleByName(fn.parent().value().name());
+    function->isMethodOf(module);
+    module->addFunction(std::move(function));
   }
 }
 
 std::shared_ptr<ChaiModule> ChaiObjectProcessor::findModuleByName(const std::string& name) const {
-  return *std::find_if(modules.begin(), modules.end(), [&](std::shared_ptr<ChaiModule> m) { return m->getName() == name;});
+  auto result = std::find_if(modules.begin(), modules.end(), [&](std::shared_ptr<ChaiModule> m) { return m->getName() == name;});
+  if(result != modules.end())
+    return *result;
+  else
+    return nullptr;
 }

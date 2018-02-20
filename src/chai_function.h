@@ -8,7 +8,7 @@
 class ChaiModule;
 
 class ChaiFunction : public ChaiObject {
-private:
+protected:
   std::string return_type;
   std::weak_ptr<ChaiModule> module;
   std::vector<std::pair<std::string, std::string>> arguments;
@@ -18,7 +18,7 @@ private:
 public:
   ChaiFunction() = delete;
   ChaiFunction(const std::string& name, const std::string& _namespace = "", const std::string& return_type = "void", const bool is_overloaded = false, const bool is_static = false);
-
+  ChaiFunction(ChaiFunction&& func) = default;
   void setReturnType(const std::string& return_type) noexcept;
   std::string getReturnType() const noexcept;
   void setConstructor(const bool constructor);

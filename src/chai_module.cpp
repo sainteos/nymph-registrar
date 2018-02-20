@@ -8,42 +8,39 @@ ChaiModule::ChaiModule(const std::string& _class, const std::string& _namespace)
 
 }
 
-void ChaiModule::addFunction(std::shared_ptr<ChaiFunction> function) {
-  if(function_names.count(function->getName()) == 0) {
-    function_names[function->getName()] = function;
-  }
-  else {
+void ChaiModule::addFunction(std::unique_ptr<ChaiFunction> function) {
+  if(hasFunction(function->getName())) {
+    auto func = std::find_if(functions.begin(), functions.end(), [&](const std::unique_ptr<ChaiFunction>& f) { return function->getName() == f->getName(); });
+
+    (*func)->setOverloaded(true);
     function->setOverloaded(true);
-    if(!function_names[function->getName()]->isOverloaded()) {
-      function_names[function->getName()]->setOverloaded(true);
-    }
   }
-  functions.push_back(function);
+  functions.push_back(std::move(function));
 }
 
-std::vector<std::shared_ptr<ChaiFunction>>& ChaiModule::getFunctions() noexcept {
-  return functions;
-}
-
-void ChaiModule::addConstructor(std::shared_ptr<ChaiFunction> constructor) {
+void ChaiModule::addConstructor(std::unique_ptr<ChaiFunction> constructor) {
   if(constructors.size() == 1) {
     constructors.back()->setOverloaded(true);
   }
   if(constructors.size() >= 1) {
     constructor->setOverloaded(true);
   }
-  constructors.push_back(constructor);
+  constructors.push_back(std::move(constructor));
 }
 
-std::vector<std::shared_ptr<ChaiFunction>>& ChaiModule::getConstructors() noexcept {
-  return constructors;
+bool ChaiModule::hasFunction(const std::string& name) const {
+  if(functions.size() == 0)
+    return false;
+
+  auto func = std::find_if(functions.begin(), functions.end(), [&](const std::unique_ptr<ChaiFunction>& f) { return name == f->getName(); });
+  return func != functions.end();
 }
 
 void ChaiModule::addRawBase(const std::string& name) {
   raw_bases.push_back(name);
 }
 
-void ChaiModule::addRawBases(std::vector<std::string> bases) {
+void ChaiModule::addRawBases(const std::vector<std::string>& bases) {
   raw_bases = bases;
 }
 
@@ -101,9 +98,9 @@ std::set<std::shared_ptr<ChaiModule>> ChaiModule::getAllBases() const {
   return bases;
 }
 
-bool ChaiModule::operator<(const ChaiObject& other) const {
+bool ChaiModule::operator<(ChaiObject& other) const {
   try {
-    auto other_module = dynamic_cast<const ChaiModule&>(other);
+    auto& other_module = dynamic_cast<ChaiModule&>(other);
     return this->raw_bases.size() < other_module.raw_bases.size();
   } catch(std::bad_cast e) {
     return false;
@@ -119,7 +116,7 @@ std::string ChaiModule::getRegistryString() const {
 
   //Add module constructors
   for(auto& c : constructors) {
-    reg << "    {" << c->getRegistryString() << "},\n";
+    reg << c->getRegistryString();
   }
 
   if(constructors.size() > 0) {
@@ -131,7 +128,7 @@ std::string ChaiModule::getRegistryString() const {
 
   //Add module functions
   for(auto& f : functions) {
-    reg << "    {" << f->getRegistryString() << "},\n";
+    reg << f->getRegistryString();
   }
   if(functions.size() > 0) {
     reg.seekp(static_cast<long>(reg.tellp()) - 2);

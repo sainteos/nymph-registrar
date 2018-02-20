@@ -80,7 +80,7 @@ std::string ChaiFunction::getRegistryString() const {
       args.pop_back();
     return args;
   };
-
+  reg << "{";
   if(is_constructor) {
     reg << "chaiscript::constructor<" << getName() << "(" << collapse_args() << ")>()";
   }
@@ -102,6 +102,7 @@ std::string ChaiFunction::getRegistryString() const {
     }
     reg << chai_name << "\"";
   }
+  reg << "},\n";
 
   return reg.str();
 }

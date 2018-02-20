@@ -10,6 +10,7 @@
 #include "chai_module.h"
 #include "chai_enum.h"
 #include "chai_function.h"
+#include "chai_function_template.h"
 
 class ChaiObjectProcessor {
 private:
@@ -20,16 +21,18 @@ private:
   std::vector<std::shared_ptr<ChaiEnum>> enums;
   std::vector<std::shared_ptr<ChaiModule>> modules;
   std::vector<std::shared_ptr<ChaiFunction>> functions;
+  std::vector<std::shared_ptr<ChaiFunctionTemplate>> function_templates;
 
   std::string current_namespace;
 
   bool verbose_parsing;
 
-  std::vector<std::unique_ptr<cppast::cpp_file>> parseFiles(std::vector<std::string>& filenames, const cppast::libclang_compile_config& config, const bool verbose_parsing = false);
+  std::vector<std::unique_ptr<cppast::cpp_file>> parseFiles(const std::vector<std::string>& filenames, const cppast::libclang_compile_config& config, const bool verbose_parsing = false);
   void processNamespace(const cppast::cpp_entity& ent, const bool verbose_output = false);
   void processModule(const cppast::cpp_entity& ent, const bool verbose_output = false);
   void processEnum(const cppast::cpp_entity& ent, const bool verbose_output = false);
   void processMemberFunction(const cppast::cpp_entity& ent, const bool verbose_output = false);
+  void processFunctionTemplate(const cppast::cpp_entity& ent, const bool verbose_output = false);
   void processConstructor(const cppast::cpp_entity& ent, const bool verbose_output = false);
   void processStaticFunction(const cppast::cpp_entity& ent, const bool verbose_output = false);
 
@@ -37,7 +40,7 @@ private:
 public:
   ChaiObjectProcessor() = delete;
   ChaiObjectProcessor(const cppast::libclang_compile_config& config, const bool verbose_processing = false);
-  void processObjects(std::vector<std::string> filenames, const bool verbose_output = false);
+  void processObjects(const std::vector<std::string>& filenames, const bool verbose_output = false);
   std::stringstream generateRegistrations(const bool expanded = false, const bool verbose_output = false) const;
 
 };
