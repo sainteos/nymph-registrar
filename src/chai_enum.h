@@ -18,7 +18,7 @@ public:
   void inClass(const std::string& class_name);
   std::string getClassWithin() const noexcept;
 
-  virtual std::string getRegistryString() const override;
+  virtual std::string getRegistryString() override;
 };
 
 #endif

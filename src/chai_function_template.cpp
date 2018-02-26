@@ -4,8 +4,8 @@
 #include "chai_module.h"
 #include "chai_function_template.h"
 
-ChaiFunctionTemplate::ChaiFunctionTemplate(const std::string& name, const std::string& _namespace, const std::string& return_type, const bool is_static)
-  : ChaiFunction(name, _namespace, return_type, false, is_static), sub_location(SubstitutionLocation::BEFORE) {
+ChaiFunctionTemplate::ChaiFunctionTemplate(const std::string& name, const std::string& _namespace, const FunctionType& type, const std::string& return_type, const bool is_static)
+  : ChaiFunction(name, _namespace, type, return_type, false, is_static), sub_location(SubstitutionLocation::BEFORE) {
 
 }
 
@@ -154,7 +154,7 @@ namespace detail {
   }
 }
 
-std::string ChaiFunctionTemplate::getRegistryString() const {
+std::string ChaiFunctionTemplate::getRegistryString() {
   std::stringstream reg;
 
   auto possible_types = detail::combine_all(template_names_to_types);

@@ -27,7 +27,7 @@ public:
   template<class T>
   static std::shared_ptr<T> create(const std::string& name, const std::string& _namespace);
 
-  virtual std::string getRegistryString() const = 0;
+  virtual std::string getRegistryString() = 0;
   virtual std::string getRegistryFunctionCall() const;
 };
 

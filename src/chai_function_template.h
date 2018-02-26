@@ -13,7 +13,7 @@ private:
   std::vector<std::pair<std::string, std::vector<std::string>>> template_names_to_types;
 public:
   ChaiFunctionTemplate() = delete;
-  ChaiFunctionTemplate(const std::string& name, const std::string& _namespace = "", const std::string& return_type = "void", const bool is_static = false);
+  ChaiFunctionTemplate(const std::string& name, const std::string& _namespace = "", const FunctionType& type = FunctionType::GLOBAL_TEMPLATE, const std::string& return_type = "void", const bool is_static = false);
   ChaiFunctionTemplate(ChaiFunctionTemplate&& func) = default;
 
   void addTemplateVariable(const std::string& name) noexcept;
@@ -26,7 +26,7 @@ public:
   SubstitutionLocation getSubstitutionLocation() const noexcept;
 
   virtual std::string toString() const noexcept override;
-  virtual std::string getRegistryString() const override;
+  virtual std::string getRegistryString() override;
 };
 
 #endif

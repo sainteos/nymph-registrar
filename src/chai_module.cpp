@@ -1,16 +1,16 @@
 #include <sstream>
 #include <iostream>
 #include <memory>
-#include <set>
+#include <list>
 #include "chai_module.h"
 
 ChaiModule::ChaiModule(const std::string& _class, const std::string& _namespace) : ChaiObject(_class, _namespace) {
 
 }
 
-void ChaiModule::addFunction(std::unique_ptr<ChaiFunction> function) {
+void ChaiModule::addFunction(std::shared_ptr<ChaiFunction> function) {
   if(hasFunction(function->getName())) {
-    auto func = std::find_if(functions.begin(), functions.end(), [&](const std::unique_ptr<ChaiFunction>& f) { return function->getName() == f->getName(); });
+    auto func = std::find_if(functions.begin(), functions.end(), [&](const std::shared_ptr<ChaiFunction>& f) { return function->getName() == f->getName(); });
 
     (*func)->setOverloaded(true);
     function->setOverloaded(true);
@@ -29,11 +29,12 @@ void ChaiModule::addConstructor(std::unique_ptr<ChaiFunction> constructor) {
 }
 
 bool ChaiModule::hasFunction(const std::string& name) const {
-  if(functions.size() == 0)
-    return false;
+  return getFunction(name) != nullptr;
+}
 
-  auto func = std::find_if(functions.begin(), functions.end(), [&](const std::unique_ptr<ChaiFunction>& f) { return name == f->getName(); });
-  return func != functions.end();
+std::shared_ptr<ChaiFunction> ChaiModule::getFunction(const std::string& name) const {
+  auto func = std::find_if(functions.begin(), functions.end(), [&](const std::shared_ptr<ChaiFunction>& f) { return name == f->getName(); });
+  return func != functions.end() ? *func : nullptr;
 }
 
 void ChaiModule::addRawBase(const std::string& name) {
@@ -48,53 +49,63 @@ std::vector<std::string> ChaiModule::getRawBases() const noexcept {
   return raw_bases;
 }
 
-std::set<std::shared_ptr<ChaiModule>> ChaiModule::getAllBases() const {
-  std::set<std::shared_ptr<ChaiModule>> bases;
+std::vector<std::shared_ptr<ChaiModule>> ChaiModule::getBases(const std::string& ns, const std::string& cs) const {
+  std::vector<std::shared_ptr<ChaiModule>> bases;
+
+  if(hasObjectBeenRegistered(cs, ns)) {
+    std::cout<<"Object has been registered: "<<ns<<"::"<<cs<<std::endl;
+    auto m = std::dynamic_pointer_cast<ChaiModule>(getRegisteredObject(cs, ns));
+    if(m) {
+      bases.push_back(m);
+      auto m_bases = m->getAllBases();
+      if(!m_bases.empty()) {
+        bases.insert(bases.end(), m_bases.begin(), m_bases.end());
+      }
+    }
+  }
+  else {
+    std::cout<<"Object has not been registered: "<<ns<<"::"<<cs<<std::endl;
+  }
+  return bases;
+}
+
+std::list<std::shared_ptr<ChaiModule>> ChaiModule::getAllBases() const {
+  std::list<std::shared_ptr<ChaiModule>> bases;
   for(auto b : raw_bases) {
     std::string ns;
     std::string cs;
     if(b.find_last_of("::") != std::string::npos) {
       ns = b.substr(0, b.find_last_of("::")-1);
       cs = b.substr(b.find_last_of("::")+1, b.size() - b.find_last_of("::"));
-      if(hasObjectBeenRegistered(cs, ns))
-      {
-        auto m = std::dynamic_pointer_cast<ChaiModule>(getRegisteredObject(cs, ns));
-        if(m) {
-          bases.insert(m);
-          auto m_bases = m->getAllBases();
-          if(!m_bases.empty()) {
-            bases.insert(m_bases.begin(), m_bases.end());
-          }
-        }
+      auto b_bases = getBases(ns, cs);
+      if(!b_bases.empty()) {
+        bases.insert(bases.end(), b_bases.begin(), b_bases.end());
       }
     }
     else {
       cs = b;
-      ns = getNamespace();
-      if(hasObjectBeenRegistered(cs, ns))
-      {
-        auto m = std::dynamic_pointer_cast<ChaiModule>(getRegisteredObject(cs, ns));
-        if(m) {
-          bases.insert(m);
-          auto m_bases = m->getAllBases();
-          if(!m_bases.empty()) {
-            bases.insert(m_bases.begin(), m_bases.end());
-          }
+      std::string n = getNamespace().substr(0, ns.find_last_of("::") - 1);
+      do {
+        auto b_bases = getBases(n, cs);
+
+        if(!b_bases.empty()) {
+          bases.insert(bases.end(), b_bases.begin(), b_bases.end());
+          break;
         }
-      }
-      else if(hasObjectBeenRegistered(cs, "")) {
-        auto m = std::dynamic_pointer_cast<ChaiModule>(getRegisteredObject(cs, ""));
-        if(m) {
-          bases.insert(m);
-          auto m_bases = m->getAllBases();
-          if(!m_bases.empty()) {
-            bases.insert(m_bases.begin(), m_bases.end());
-          }
-        }
+        if(n.find_last_of("::") != std::string::npos)
+          n = getNamespace().substr(0, n.find_last_of("::") - 1);
+        else
+          n = "";
+      } while(!n.empty());
+
+      auto n_bases = getBases("", cs);
+
+      if(!n_bases.empty()) {
+        bases.insert(bases.end(), n_bases.begin(), n_bases.end());
       }
     }
   }
-
+  bases.unique();
   return bases;
 }
 
@@ -107,7 +118,7 @@ bool ChaiModule::operator<(ChaiObject& other) const {
   }
 }
 
-std::string ChaiModule::getRegistryString() const {
+std::string ChaiModule::getRegistryString() {
   std::stringstream reg;
   reg << "chaiscript::ModulePtr " << getRegistryFunctionCall() << " {\n";
   reg << "  chaiscript::ModulePtr module = std::make_shared<chaiscript::Module>();\n";

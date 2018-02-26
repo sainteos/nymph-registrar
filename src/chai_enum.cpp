@@ -21,7 +21,7 @@ std::string ChaiEnum::getClassWithin() const noexcept {
   return in_class;
 }
 
-std::string ChaiEnum::getRegistryString() const {
+std::string ChaiEnum::getRegistryString() {
   std::stringstream reg;
   reg << "chaiscript::ModulePtr " << getRegistryFunctionCall() << " {\n";
   reg << "  chaiscript::ModulePtr module = std::make_shared<chaiscript::Module>();\n";

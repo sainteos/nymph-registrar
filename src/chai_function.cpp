@@ -3,8 +3,8 @@
 #include "chai_function.h"
 #include "chai_module.h"
 
-ChaiFunction::ChaiFunction(const std::string& name, const std::string& _namespace, const std::string& return_type,  const bool is_overloaded, const bool is_static)
-: ChaiObject(name, _namespace), return_type(return_type), is_constructor(false), is_overloaded(is_overloaded), is_static(is_static) {
+ChaiFunction::ChaiFunction(const std::string& name, const std::string& _namespace, const FunctionType& type, const std::string& return_type,  const bool is_overloaded, const bool is_static)
+: ChaiObject(name, _namespace), type(type), return_type(return_type), is_constructor(false), is_overloaded(is_overloaded), is_static(is_static) {
 
 }
 
@@ -17,6 +17,7 @@ std::string ChaiFunction::getReturnType() const noexcept {
 }
 
 void ChaiFunction::setConstructor(const bool constructor) {
+  type = FunctionType::MEMBER;
   is_constructor = constructor;
 }
 
@@ -48,14 +49,24 @@ std::vector<std::pair<std::string, std::string>> ChaiFunction::getArguments() co
 }
 
 void ChaiFunction::isMethodOf(std::weak_ptr<ChaiModule> module) {
+  if(type == FunctionType::GLOBAL){
+    type = FunctionType::MEMBER;
+  }
+  else if(type == FunctionType::GLOBAL_TEMPLATE) {
+    type = FunctionType::MEMBER_TEMPLATE;
+  }
   this->module = module;
+}
+
+FunctionType ChaiFunction::getFunctionType() const noexcept {
+  return type;
 }
 
 std::string ChaiFunction::toString() const noexcept {
   return (this->module.use_count() > 0 ? this->module.lock()->getName() + "::" : "") + getName();
 }
 
-std::string ChaiFunction::getRegistryString() const {
+std::string ChaiFunction::getRegistryString() {
   std::stringstream reg;
   auto collapse_args = [&]() {
     std::string args;
