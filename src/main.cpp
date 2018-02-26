@@ -8,6 +8,7 @@
 #include <stack>
 #include <list>
 #include <fstream>
+#include <sys/stat.h>
 #include <tinydir.h>
 #include <cppast/libclang_parser.hpp>
 #include "chai_object_processor.h"
@@ -39,6 +40,21 @@ std::vector<std::string> grabFiles(const std::string& directory, const std::vect
   return files;
 }
 
+void checkOrCreateFolder(const std::string& path, const std::string& folder) {
+  tinydir_dir dir;
+  tinydir_open(&dir, path.c_str());
+
+  while(dir.has_next) {
+    tinydir_file file;
+    tinydir_readfile(&dir, &file);
+    if(file.name == folder.c_str())
+      return;
+    tinydir_next(&dir);
+  }
+
+  mkdir(std::string(path + folder).c_str(), S_IRWXU | S_IRWXG | S_IRWXO);
+}
+
 int main(int argc, char** argv) {
   std::string include_dir;
   if(argc < 2) {
@@ -63,8 +79,8 @@ int main(int argc, char** argv) {
     std::cout<<"= -VV: This tells the tool to output verbose  ="<<std::endl;
     std::cout<<"= output as it parses and processes.          ="<<std::endl;
     std::cout<<"=                                             ="<<std::endl;
-    std::cout<<"= -X: This tells the tool to expand the outp- ="<<std::endl;
-    std::cout<<"= ut into multiple files instead of one.      ="<<std::endl;
+    std::cout<<"= -N: This tells the tool to create registra- ="<<std::endl;
+    std::cout<<"= tions within this namespace/folder.         ="<<std::endl;
     std::cout<<"=                                             ="<<std::endl;
     std::cout<<"= -S: This tells the tool to output the resu- ="<<std::endl;
     std::cout<<"= lt to stdout.                               ="<<std::endl;
@@ -76,7 +92,7 @@ int main(int argc, char** argv) {
   std::vector<std::string> includes;
   std::vector<std::string> exclusions;
   std::string output_directory = "./";
-  bool expand_files = false;
+  std::string output_namespace = "";
   bool print_to_stdout = false;
   bool parse_verbosely = false;
   bool process_verbosely = false;
@@ -105,9 +121,10 @@ int main(int argc, char** argv) {
       std::cout<<"Output directory: "<<arg<<std::endl;
       output_directory = arg;
     }
-    else if(arg.find("-X") != std::string::npos) {
-      std::cout<<"Output will be expanded to multiple files."<<std::endl;
-      expand_files = true;
+    else if(arg.find("-N") != std::string::npos) {
+      arg.erase(0, 2);
+      std::cout<<"Registrations will be put in namespace "<<arg<<std::endl;
+      output_namespace = arg;
     }
     else if(arg.find("-V") != std::string::npos && arg.find("-VV") == std::string::npos) {
 
@@ -141,13 +158,13 @@ int main(int argc, char** argv) {
 
   object_processor.processObjects(files, process_verbosely);
 
-  auto registrations = object_processor.generateRegistrations(process_verbosely);
+  auto registrations = object_processor.generateRegistrations(output_namespace, process_verbosely);
 
   if(print_to_stdout) {
     std::cout<<registrations.str();
   }
-
-  std::ofstream output_file(output_directory + "generated_registrations.h");
+  checkOrCreateFolder(output_directory, output_namespace);
+  std::ofstream output_file(output_directory + output_namespace + "/" + output_namespace + "_registrations.h");
   output_file << registrations.str();
   output_file.flush();
   output_file.close();

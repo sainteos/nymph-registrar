@@ -271,14 +271,11 @@ void ChaiObjectProcessor::processObjects(const std::vector<std::string>& filenam
       return true;
     });
   }
-  std::cout<<"~~~~~~~~~~~~~~CURRENT TREE~~~~~~~~~~~~~~~"<<std::endl;
-  std::cout<<"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"<<std::endl;
-  std::cout<<module_tree<<std::endl;
 
   std::cout<<"Total processed objects: "<<objects.size()<<std::endl;
 }
 
-std::stringstream ChaiObjectProcessor::generateRegistrations(const bool expanded, const bool verbose_output) {
+std::stringstream ChaiObjectProcessor::generateRegistrations(const std::string& _namespace, const bool verbose_output) {
   std::stringstream output;
 
   if(verbose_output)
@@ -298,7 +295,8 @@ std::stringstream ChaiObjectProcessor::generateRegistrations(const bool expanded
   for(auto filename : filenames) {
     output << "#include \"" << filename << "\"" << std::endl;
   }
-
+  if(_namespace != "")
+    output << "namespace "<<_namespace<< " {"<<std::endl;
   output << "namespace generated {" << std::endl;
   if(verbose_output)
     std::cout<<"Writing namespaces..."<<std::endl;
@@ -343,6 +341,8 @@ std::stringstream ChaiObjectProcessor::generateRegistrations(const bool expanded
   }
   output << "}" << std::endl;
   output << "}" << std::endl;
+  if(_namespace != "")
+    output << "}" << std::endl;
   output << "#endif" << std::endl;
   if(verbose_output)
     std::cout<<"Finished writing!!!"<<std::endl;
@@ -551,7 +551,6 @@ void ChaiObjectProcessor::processFunctionTemplate(const cppast::cpp_entity& ent,
       args_str.erase(args_str.find_first_of(","), 1);
     auto args = detail::split_args(arg_list);
     for(auto arg : args) {
-      std::cout<<"Arg: "<<arg<<std::endl;
       function_template->addSubstitutionType(function_template->getTemplateVariables()[i], arg);
     }
   }

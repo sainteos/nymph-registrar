@@ -79,7 +79,7 @@ OPTIONS:
 
 -VV: This tells the tool to output verbose output as it parses and processes.
 
--X: This tells the tool to expand the generated registrations into multiple files per namespace.
+-N: This tells the tool to generate registrations within this namespace/folder.
 
 -S: This tells the tool to output the generated registrations to stdout.
 ```

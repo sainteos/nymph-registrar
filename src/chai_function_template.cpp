@@ -159,7 +159,7 @@ std::string ChaiFunctionTemplate::getRegistryString() {
 
   auto possible_types = detail::combine_all(template_names_to_types);
   if(possible_types.chai_names.size() != possible_types.template_args.size()) {
-    std::cout<<"Something went just so wrong."<<std::endl;
+    throw std::runtime_error("Mismatch of chai names to template args when trying to generate function template registry.");
   }
 
   int size = possible_types.chai_names.size();

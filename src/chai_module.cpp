@@ -53,7 +53,6 @@ std::vector<std::shared_ptr<ChaiModule>> ChaiModule::getBases(const std::string&
   std::vector<std::shared_ptr<ChaiModule>> bases;
 
   if(hasObjectBeenRegistered(cs, ns)) {
-    std::cout<<"Object has been registered: "<<ns<<"::"<<cs<<std::endl;
     auto m = std::dynamic_pointer_cast<ChaiModule>(getRegisteredObject(cs, ns));
     if(m) {
       bases.push_back(m);
@@ -62,9 +61,6 @@ std::vector<std::shared_ptr<ChaiModule>> ChaiModule::getBases(const std::string&
         bases.insert(bases.end(), m_bases.begin(), m_bases.end());
       }
     }
-  }
-  else {
-    std::cout<<"Object has not been registered: "<<ns<<"::"<<cs<<std::endl;
   }
   return bases;
 }
