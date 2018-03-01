@@ -16,6 +16,6 @@ solution "nymph-registrar"
 
     configuration "DEBUG"
       buildoptions { "-std=c++14", "-g", "-O0", "-Wno-assume" }
-      links {  "cppast", "_cppast_tiny_process", "clang" }
+      links {  "yaml-cpp", "cppast", "_cppast_tiny_process", "clang" }
       defines { "DEBUG" }
       flags { "Symbols" }

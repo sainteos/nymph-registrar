@@ -65,6 +65,7 @@ void doSomethingImportant(T&& t, S&& s, Z&& z);
 ```
 When the generator creates the registration code for that template function, it will concatenate the different template types in the method name, and it will place the type names after the function name as such: `doSomethingImportantUnsignedIntFloatString`. Note how the scope drops off for the name.
 
+### Processing A Single Library
 nymph-generate runs like this:
 ```
 nymph-registrar <options> [parse dir]
@@ -81,14 +82,39 @@ OPTIONS:
 
 -N: This tells the tool to generate registrations within this namespace/folder.
 
--S: This tells the tool to output the generated registrations to stdout.
 ```
+### Processing Multiple Libraries
+For multiple libraries to be processed in one go, it's better to describe them within a configuration file.
+```
+# nymph-config.yml
+---
+verbose_parsing: false
+verbose_processing: false
+output_directory: "./generated/"
+libraries:
+  - name: "Library 1"
+    location: "/Path/To/src/"
+    includes:
+      - "/Path/To/include/"
+      - "/Path/To/library/include"
+    namespace: "lib1"
+  - name: "Library 2"
+    location: "/Lib/Two/src"
+    includes: "/Just/One/include"
+    namespace: "lib2"
+```
+Running nymph-registrar with the configuration is as simple as:
+```
+nymph-registrar /path/to/nymph-config.yml
+```
+
 ## Running the tests
 
 There aren't tests yet. I plan to change that.
 
 ## Built With
 Currently, this has been built successfully with clang. It might be possible to get it to build with gcc/g++.
+* [yaml-cpp](https://github.com/jbeder/yaml-cpp) - For loading config
 * [cppast](https://github.com/foonathan/cppast) - For searching the abstract source tree
 * [libclang](https://github.com/llvm-mirror/clang) - Used by cppast to read the source tree.
 * [premake4](https://github.com/premake/premake-4.x) - For generating a makefile

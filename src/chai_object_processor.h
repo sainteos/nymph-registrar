@@ -101,7 +101,7 @@ private:
 
   std::shared_ptr<ChaiModule> findModuleByName(const std::string& name);
 public:
-  ChaiObjectProcessor() = delete;
+  ChaiObjectProcessor();
   ChaiObjectProcessor(const cppast::libclang_compile_config& config, const bool verbose_processing = false);
   void processObjects(const std::vector<std::string>& filenames, const bool verbose_output = false);
   std::stringstream generateRegistrations(const std::string& _namespace, const bool verbose_output = false);

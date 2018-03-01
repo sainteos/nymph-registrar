@@ -223,6 +223,10 @@ namespace detail {
   }
 }
 
+ChaiObjectProcessor::ChaiObjectProcessor() : compile_config(), current_namespace(""), verbose_parsing(false) {
+
+}
+
 ChaiObjectProcessor::ChaiObjectProcessor(const cppast::libclang_compile_config& config, const bool verbose_parsing) : compile_config(config), current_namespace(""), verbose_parsing(verbose_parsing) {
 
 }
