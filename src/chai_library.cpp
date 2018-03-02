@@ -42,7 +42,7 @@ namespace detail {
       tinydir_next(&dir);
     }
 
-    mkdir(std::string(path + folder).c_str(), S_IRWXU | S_IRWXG | S_IRWXO);
+    mkdir(std::string(folder).c_str(), S_IRWXU | S_IRWXG | S_IRWXO);
   }
 }
 
@@ -69,10 +69,10 @@ void ChaiLibrary::process() {
   auto files = detail::grabFiles(location, exclusions);
   processor.processObjects(files, verbose_processing);
 
-  auto registrations = processor.generateRegistrations(_namespace, verbose_processing);
+  auto registrations = processor.generateRegistrations(_namespace, location, verbose_processing);
 
-  detail::checkOrCreateFolder(output, _namespace);
-  std::ofstream output_file(output + _namespace + "/" + _namespace + "_registrations.h");
+  detail::checkOrCreateFolder(location, output);
+  std::ofstream output_file(output + "/" + _namespace + "_registrations.h");
   output_file << registrations.str();
   output_file.flush();
   output_file.close();
